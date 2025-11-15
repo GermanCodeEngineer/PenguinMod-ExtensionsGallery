@@ -26,17 +26,6 @@
     const hasOwn = Object.hasOwn;
     const defaultPrototype = Object.getPrototypeOf({})
 
-    function isClassOrInstance(x) {
-        if (typeof x === "function") {
-            return classRegex.test(fnToString.call(x))
-        }
-        if (x && typeof x === "object") {
-            const ctor = x.constructor
-            return typeof ctor === "function" && classRegex.test(fnToString.call(ctor))
-        }
-        return false
-    }
-
     class ObjectType {
         customId = "dogeiscutObject"
 
@@ -47,9 +36,23 @@
             } else {
                 this.object = Object.create(null)
             }
+            console.log("created", this)
         }
 
-        static toObject(x, copy = true) {
+        static convertObjectAndArray(value) {
+            if ((typeof value === "object") && (value !== null)) {
+                if (isArray(value)) {
+                    return new jwArray.Type(jwArray.Type.toArray(value).array.map(ObjectType.convertObjectAndArray))
+                }
+                const prototype = Object.getPrototypeOf(value)
+                if (!prototype || prototype === defaultPrototype) {
+                    return ObjectType.toObject(value, false)
+                }
+            }
+            return value
+        }
+
+        static _toObject(x, copy = true) {
             if (copy) {
                 if (x === "" || x === null || x === undefined) return new ObjectType()
                 if (x instanceof ObjectType) return new ObjectType(x.object)
@@ -58,35 +61,40 @@
                 if (x instanceof ObjectType) return x
             }
 
-            if (x && typeof x === "object") {
-                if (x instanceof jwArray.Type) {
-                    return new ObjectType(Object.fromEntries(x.array.map((v,i)=>[i+1,v])))
-                }
-                if (isArray(x)) {
-                    return new ObjectType(Object.fromEntries(x.map((v,i)=>[i+1,v])))
+            if (typeof x === "object") {
+                if (x instanceof jwArray.Type || isArray(x)) {
+                    if (x instanceof jwArray.Type) x = x.array
+                    return new ObjectType(Object.fromEntries(x.map((value, index) => {
+                        return [index + 1, ObjectType.convertObjectAndArray(value)]
+                    })))
                 }
                 if (typeof x.toJSON == "function") {
-                    x = x.toJSON()
+                    return ObjectType.toObject(x.toJSON())
                 }
-                if (isClassOrInstance(x)) {
-                    return new ObjectType({ value: x })
+                
+                const prototype = Object.getPrototypeOf(x)
+                if (!prototype || prototype === defaultPrototype) {
+                    x = Object.entries(Object.assign(Object.create(null), x))
+                    return new ObjectType(Object.fromEntries(x.map(([key, value]) => {
+                        return [key, ObjectType.convertObjectAndArray(value)]
+                    })))
                 }
-                return new ObjectType(Object.assign(Object.create(null), x))
+            } else if (typeof x === "string") {
+                const result = new ObjectType()
+                for (let i = 0; i < x.length; i++) {
+                    result.object[i + 1] = x[i]
+                }
+                return result
             }
 
-            if (typeof x === "string") {
-                try {
-                    const parsed = JSON.parse(x)
-                    if (isArray(parsed)) {
-                        return new ObjectType(Object.fromEntries(parsed.map((v,i)=>[i+1,v])))
-                    }
-                    if (parsed && typeof parsed === "object") {
-                        return new ObjectType(Object.assign(Object.create(null), parsed))
-                    }
-                } catch {}
-            }
+            console.error("defaulting", x)
+            return ObjectType.toObject(null)
+        }
 
-            return new ObjectType({ value: x })
+        static toObject(x, copy = true) {
+            let v = ObjectType._toObject(x, copy)
+            console.log("toObject", x, copy, "=>", v)
+            return v
         }
 
         jwArrayHandler() {
@@ -96,17 +104,6 @@
 
         dogeiscutObjectHandler() {
             return this.toString()
-        }
-
-        static convertIfNeeded(x) {
-            if (x === null || typeof x !== "object") return x
-            if (x instanceof jwArray.Type || x instanceof dogeiscutObject.Type) return x
-
-            if (isArray(x)) return jwArray.Type.toArray(x)
-            const prototype = Object.getPrototypeOf(x)
-            if (!prototype || prototype === defaultPrototype) return dogeiscutObject.Type.toObject(x)
-
-            return x
         }
 
         toString() {
@@ -121,16 +118,8 @@
                     return obj.toString();
                 }
                 if (obj !== null && typeof obj === "object") {
-                    if (typeof obj.dogeiscutObjectHandler == "function") {
-                        return obj.dogeiscutObjectHandler()
-                    }
-                    if (typeof obj.jwArrayHandler == "function") {
-                        return obj.jwArrayHandler()
-                    }
-                    const entries = Object.entries(obj)
-                        .map(([key, value]) => `"${key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}":${stringify(value)}`)
-                        .join(",");
-                    return `{${entries}}`;
+                    return obj.toString();
+                    // We cannot rely on handlers like dogeicutObjectHandler which produce HTML
                 }
                 if (obj === null || obj === undefined) return "null";
                 if (typeof obj === "string") return JSON.stringify(obj);
@@ -307,12 +296,12 @@
 
         get(key) {
             if (typeof key !== "string" && typeof key !== "number") return undefined
-            return ObjectType.convertIfNeeded(this.object[key])
+            return this.object[key]
         }
 
         set(key, value) {
             if (typeof key !== "string" && typeof key !== "number") return
-            this.object[key] = ObjectType.convertIfNeeded(value)
+            this.object[key] = value
         }
 
         delete(key) {
@@ -721,7 +710,13 @@
         }
 
         parse({ VALUE }) {
-            return dogeiscutObject.Type.toObject(VALUE);
+            if (typeof VALUE === "string") {
+                try {
+                    VALUE = JSON.parse(VALUE)
+                }
+                catch {}
+            }
+            return dogeiscutObject.Type.toObject(VALUE)
         }
 
         keyValue({ KEY, VALUE }) {
@@ -783,7 +778,7 @@
         get({ OBJECT, KEY }) {
             OBJECT = dogeiscutObject.Type.toObject(OBJECT, false)
 
-            return hasOwn(OBJECT.object, KEY) ? dogeiscutObject.Type.convertIfNeeded(OBJECT.object[KEY]) : ""
+            return hasOwn(OBJECT.object, KEY) ? OBJECT.object[KEY] : ""
         }
 
         getPath({ OBJECT, ARRAY }) {
@@ -802,7 +797,7 @@
                 }
             }
             
-            return dogeiscutObject.Type.convertIfNeeded(current);
+            return current;
         }
 
         has({ OBJECT, KEY }) {
@@ -889,18 +884,19 @@
         values({ OBJECT }) {
             OBJECT = dogeiscutObject.Type.toObject(OBJECT, false);
 
-            return new jwArray.Type(Object.values(OBJECT.object).map(dogeiscutObject.Type.convertIfNeeded));
+            console.log("hey", Object.values(OBJECT.object))
+            return new jwArray.Type(Object.values(OBJECT.object));
         }
 
         entries({ OBJECT }) {
             OBJECT = dogeiscutObject.Type.toObject(OBJECT, false);
 
             return new jwArray.Type(Object.entries(OBJECT.object).map(([key, value]) => {
-                return new jwArray.Type([key, dogeiscutObject.Type.convertIfNeeded(value)]);
+                return new jwArray.Type([key, value]);
             }));
         }
 
-        is({ VALUE }) {
+        is({ VALUE }) { // TODO: fix: alive objects should return true
             try {
                 const parsed = JSON.parse(VALUE);
                 return typeof parsed === 'object' && parsed !== null && !isArray(parsed);
@@ -911,12 +907,12 @@
 
         forEachK({}, util) {
             let obj = util.thread.stackFrames[0].dogeiscutObject;
-            return obj ? dogeiscutObject.Type.convertIfNeeded(obj[0]) : "";
+            return obj ? obj[0] : "";
         }
 
         forEachV({}, util) {
             let obj = util.thread.stackFrames[0].dogeiscutObject;
-            return obj ? dogeiscutObject.Type.convertIfNeeded(obj[1]) : "";
+            return obj ? obj[1] : "";
         }
 
         forEach({ OBJECT }, util) {
@@ -927,9 +923,7 @@
                 util.thread.stackFrames[0].dogeiscutObject = entries[index];
             } else {
                 OBJECT = dogeiscutObject.Type.toObject(OBJECT, false);
-                const entries = Object.entries(OBJECT.object).map(([key, value]) => {
-                    return [dogeiscutObject.Type.convertIfNeeded(key), dogeiscutObject.Type.convertIfNeeded(value)];
-                });
+                const entries = Object.entries(OBJECT.object);
                 if (entries.length === 0) return;
                 util.stackFrame.entries = entries;
                 util.stackFrame.execute = true;
