@@ -88,9 +88,7 @@
         return this.fromRGB(r, g, b)
     }
 
-    jwArrayHandler(expectsPlainString, context) {
-        if (expectsPlainString) return this.toString()
-        
+    jwArrayHandler() {
         let colour = document.createElement('div')
         colour.style.width = "16px"
         colour.style.height = "16px"

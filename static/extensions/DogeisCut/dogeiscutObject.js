@@ -89,15 +89,13 @@
             return new ObjectType({ value: x })
         }
 
-        jwArrayHandler(expectsPlainString, context) {
+        jwArrayHandler() {
             // not sure how i feel about this
-            if (expectsPlainString) return this.toString()
-            else return this.toVisualContent().outerHTML
+            return this.toVisualContent().outerHTML
         }
 
-        dogeiscutObjectHandler(expectsPlainString, context) {
-            if (expectsPlainString) return this.toString()
-            else return this.toVisualContent().outerHTML
+        dogeiscutObjectHandler() {
+            return this.toString()
         }
 
         static convertIfNeeded(x) {
@@ -124,10 +122,10 @@
                 }
                 if (obj !== null && typeof obj === "object") {
                     if (typeof obj.dogeiscutObjectHandler == "function") {
-                        return obj.dogeiscutObjectHandler(true, "string")
+                        return obj.dogeiscutObjectHandler()
                     }
                     if (typeof obj.jwArrayHandler == "function") {
-                        return obj.jwArrayHandler(true, "string")
+                        return obj.jwArrayHandler()
                     }
                     const entries = Object.entries(obj)
                         .map(([key, value]) => `"${key.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}":${stringify(value)}`)
@@ -180,9 +178,9 @@
                         } else if (RENDER_ARRAYS_VISUALLY && (isArray(value) || (jwArray && value instanceof jwArray.Type))) {
                             valueCell.appendChild(renderArray(isArray(value) ? value : (value.array || [])));
                         } else if (typeof value.dogeiscutObjectHandler === "function") {
-                            valueCell.innerHTML = value.dogeiscutObjectHandler(false, "object");
+                            valueCell.innerHTML = value.dogeiscutObjectHandler();
                         } else if (typeof value.jwArrayHandler === "function") {
-                            valueCell.innerHTML = value.jwArrayHandler(false, "object");
+                            valueCell.innerHTML = value.jwArrayHandler();
                         } else {
                             valueCell.appendChild(renderObject(value));
                         }
@@ -249,9 +247,9 @@
                         } else if (RENDER_ARRAYS_VISUALLY && (isArray(item) || (jwArray && item instanceof jwArray.Type))) {
                             valCell.appendChild(renderArray(isArray(item) ? item : (item.array || [])));
                         } else if (typeof item.dogeiscutObjectHandler === "function") {
-                            valCell.innerHTML = item.dogeiscutObjectHandler(false, "array");
+                            valCell.innerHTML = item.dogeiscutObjectHandler();
                         } else if (typeof item.jwArrayHandler === "function") {
-                            valCell.innerHTML = item.jwArrayHandler(false, "array");
+                            valCell.innerHTML = item.jwArrayHandler();
                         } else {
                             valCell.appendChild(renderObject(item));
                         }

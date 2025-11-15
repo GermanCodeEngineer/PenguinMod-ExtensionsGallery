@@ -84,10 +84,10 @@
                     case "object":
                         if (x === null) return "null"
                         if (typeof x.jwArrayHandler == "function") {
-                            return x.jwArrayHandler(false, "set")
+                            return x.jwArrayHandler()
                         }
                         if (typeof x.dogeiscutSetHandler == "function") {
-                            return x.dogeiscutSetHandler(false, "set")
+                            return x.dogeiscutSetHandler()
                         }
                         return "Object"
                     case "undefined":
@@ -103,15 +103,11 @@
             return "?"
         }
 
-        dogeiscutSetHandler(expectsPlainString, context) {
-            return `Set<${formatNumber(this.set.size)}>`
-        }
-        
-        dogeiscutObjectHandler(expectsPlainString, context) {
+        dogeiscutSetHandler() {
             return `Set<${formatNumber(this.set.size)}>`
         }
 
-        jwArrayHandler(expectsPlainString, context) {
+        jwArrayHandler() {
             return `Set<${formatNumber(this.set.size)}>`
         }
 
